@@ -3,17 +3,52 @@
 //  The docs for the `std::fmt` module are a good place to start and look for examples:
 //  https://doc.rust-lang.org/std/fmt/index.html#write
 
+use std::fmt::{self, Display, Formatter};
+use std::error::Error;
+
+#[derive(Debug, PartialEq)]
 enum TicketNewError {
     TitleError(String),
     DescriptionError(String),
+}
+
+impl Display for TicketNewError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TicketNewError::TitleError(msg) => write!(f, "{}", msg),
+            TicketNewError::DescriptionError(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl Error for TicketNewError {
+
 }
 
 // TODO: `easy_ticket` should panic when the title is invalid, using the error message
 //   stored inside the relevant variant of the `TicketNewError` enum.
 //   When the description is invalid, instead, it should use a default description:
 //   "Description not provided".
-fn easy_ticket(title: String, description: String, status: Status) -> Ticket {
-    todo!()
+fn easy_ticket(title: String, description: String, status: Status) -> Result<Ticket, TicketNewError> {
+    if title.is_empty() {
+        return Err(TicketNewError::TitleError("Title cannot be empty".to_string()).into());
+    }
+    if title.len() > 50 {
+        return Err(TicketNewError::TitleError("Title cannot be longer than 50 bytes".to_string()).into());
+    }
+
+    let description = if description.is_empty() || description.len() > 500 {
+        "Description not provided".to_string()
+    } else {
+        description
+    };
+
+    Ok(Ticket {
+        title,
+        description,
+        status,
+    })
+    
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -74,24 +109,24 @@ mod tests {
     #[test]
     #[should_panic(expected = "Title cannot be empty")]
     fn title_cannot_be_empty() {
-        easy_ticket("".into(), valid_description(), Status::ToDo);
+        easy_ticket("".into(), valid_description(), Status::ToDo).unwrap();
     }
 
     #[test]
     fn template_description_is_used_if_empty() {
-        let ticket = easy_ticket(valid_title(), "".into(), Status::ToDo);
+        let ticket = easy_ticket(valid_title(), "".into(), Status::ToDo).unwrap();
         assert_eq!(ticket.description, "Description not provided");
     }
 
     #[test]
     #[should_panic(expected = "Title cannot be longer than 50 bytes")]
     fn title_cannot_be_longer_than_fifty_chars() {
-        easy_ticket(overly_long_title(), valid_description(), Status::ToDo);
+        easy_ticket(overly_long_title(), valid_description(), Status::ToDo).unwrap();
     }
 
     #[test]
     fn template_description_is_used_if_too_long() {
-        let ticket = easy_ticket(valid_title(), overly_long_description(), Status::ToDo);
+        let ticket = easy_ticket(valid_title(), overly_long_description(), Status::ToDo).unwrap();
         assert_eq!(ticket.description, "Description not provided");
     }
 
