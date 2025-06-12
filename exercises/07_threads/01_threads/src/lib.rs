@@ -12,10 +12,40 @@
 // slices of the vector directly. You'll need to allocate new
 // vectors for each half of the original vector. We'll see why
 // this is necessary in the next exercise.
-use std::thread;
+use std::{ops::AddAssign, sync::{Arc, Mutex}, thread};
 
 pub fn sum(v: Vec<i32>) -> i32 {
-    todo!()
+    let sum: Arc::<Mutex<i32>> = Arc::new(Mutex::new(0));
+
+    let mid = v.len() /2;
+    let (left, right) = v.split_at(mid);
+    let left_owned: Vec<i32> = left.to_vec();
+    let right_owned: Vec<i32> = right.to_vec();
+    
+    let sum_left_clone = sum.clone();
+    let sum_right_clone = sum.clone();
+
+    let left_sum_calc = thread::spawn(move || {
+        if let Ok(mut sum_left) = sum_left_clone.lock() {
+            *sum_left += left_owned.iter().sum::<i32>();
+        } else {
+            eprintln!("Failed to acquire left lock: mutex might be poisoned");
+        }
+    });
+
+    let right_sum_calc = thread::spawn(move || {
+        if let Ok(mut sum_right) = sum_right_clone.lock() {
+            *sum_right += right_owned.iter().sum::<i32>();
+        } else {
+            eprintln!("Failed to acquire right lock: mutex might be poisoned");
+        }
+    });
+
+    let _ = left_sum_calc.join();
+    let _ = right_sum_calc.join();
+
+    let final_sum = sum.lock().unwrap();
+    *final_sum
 }
 
 #[cfg(test)]
